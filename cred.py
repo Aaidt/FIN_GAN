@@ -8,6 +8,51 @@ from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
+# Recreate the same synthetic dataset
+np.random.seed(42)  # Same seed for reproducibility
+n_samples = 10000
+
+# Create legitimate transactions
+legitimate = np.random.normal(loc=0, scale=1, size=(n_samples, 10))
+legitimate_labels = np.zeros(n_samples)
+
+# Create fraudulent transactions
+fraudulent = np.random.normal(loc=2, scale=2, size=(int(n_samples * 0.1), 10))
+fraudulent_labels = np.ones(int(n_samples * 0.1))
+
+# Combine the data
+X = np.vstack([legitimate, fraudulent])
+y = np.hstack([legitimate_labels, fraudulent_labels])
+
+# Create DataFrame
+feature_names = [f'V{i}' for i in range(1, 11)]
+data = pd.DataFrame(X, columns=feature_names)
+data['Class'] = y
+
+# Display first few rows and basic information
+print("First 5 rows of the dataset:")
+print(data.head())
+print("\nDataset Info:")
+print(data.info())
+print("\nClass Distribution:")
+print(data['Class'].value_counts())
+
+# Visualize the distribution of features for both classes
+plt.figure(figsize=(15, 6))
+for i in range(3):  # Show first 3 features as example
+    plt.subplot(1, 3, i+1)
+    sns.kdeplot(data=data, x=f'V{i+1}', hue='Class')
+    plt.title(f'Distribution of V{i+1}')
+plt.tight_layout()
+plt.show()
+
+# Save dataset to CSV
+data.to_csv('synthetic_fraud_data.csv', index=False)
+print("\nDataset saved as 'synthetic_fraud_data.csv'")
+
+
+
 # Generate a synthetic dataset for demonstration
 np.random.seed(42)
 n_samples = 10000
