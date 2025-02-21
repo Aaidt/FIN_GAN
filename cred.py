@@ -237,8 +237,8 @@ plt.show()
 # --------------------------------------------------------------------------------------
 # To save the GAN model:
 # After GAN training
-gan.generator.save('fraud_generator_model')
-gan.discriminator.save('fraud_discriminator_model')
+gan.generator.save('fraud_generator_model.keras')  
+gan.discriminator.save('fraud_discriminator_model.keras')
 
 # To save the Random Forest model:
 # After training the classifier
