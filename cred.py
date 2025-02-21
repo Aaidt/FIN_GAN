@@ -259,6 +259,5 @@ new_synthetic_data = loaded_generator.predict(noise)
 
 # Make predictions with loaded classifier
 predictions = loaded_clf.predict(new_data)
-
 # --------------------------------------------------------------------------------------
 
