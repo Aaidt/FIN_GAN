@@ -52,10 +52,51 @@ data.to_csv('synthetic_fraud_data.csv', index=False)
 print("\nDataset saved as 'synthetic_fraud_data.csv'")
 
 
+# ------------------------------------------------------------------------------------------------------------
+# # Generate a synthetic dataset for demonstration
+# np.random.seed(42)
+# n_samples = 10000
 
-# Generate a synthetic dataset for demonstration
-np.random.seed(42)
-n_samples = 10000
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+
+# Load the realistic dataset
+data = pd.read_csv('realistic_financial_transactions.csv')
+
+# Extract features and target
+X = data.drop('Class', axis=1)
+y = data['Class']
+
+# Handle categorical features
+categorical_features = ['MerchantCategory', 'PaymentMethod', 'DeviceUsed']
+numeric_features = ['Amount', 'DistanceFromHome', 'HoursSincePrevTransaction']
+boolean_features = ['AuthenticationFailed', 'IsWeekend', 'IsNightTime']
+
+# Create timestamp features
+X['Hour'] = pd.to_datetime(X['Timestamp']).dt.hour
+X['DayOfWeek'] = pd.to_datetime(X['Timestamp']).dt.dayofweek
+numeric_features.extend(['Hour', 'DayOfWeek'])
+
+# Drop original timestamp and ID
+X = X.drop(['Timestamp', 'TransactionID'], axis=1)
+
+# Create preprocessing pipeline
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numeric_features),
+        ('cat', OneHotEncoder(), categorical_features),
+        ('bool', 'passthrough', boolean_features)
+    ])
+
+# Preprocess the data
+X_processed = preprocessor.fit_transform(X)
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split(X_processed, y, test_size=0.2, random_state=42)
+# ------------------------------------------------------------------------------------------------------------
+
+
 
 # Create legitimate transactions
 legitimate = np.random.normal(loc=0, scale=1, size=(n_samples, 10))
@@ -193,7 +234,7 @@ plt.ylabel('True Label')
 plt.xlabel('Predicted Label')
 plt.show()  
 
-
+# --------------------------------------------------------------------------------------
 # To save the GAN model:
 # After GAN training
 gan.generator.save('fraud_generator_model')
@@ -218,3 +259,6 @@ new_synthetic_data = loaded_generator.predict(noise)
 
 # Make predictions with loaded classifier
 predictions = loaded_clf.predict(new_data)
+
+# --------------------------------------------------------------------------------------
+
