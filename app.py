@@ -13,7 +13,7 @@ st.set_page_config(page_title="Fraud Detection System", layout="wide")
 # Load components (only once)
 @st.cache_resource
 def load_components():
-    generator = tf.keras.models.load_model('fraud_generator_model')
+    generator = tf.keras.models.load_model('fraud_generator_model.keras')
     clf = joblib.load('fraud_detection_model.joblib')
     scaler = StandardScaler()
     return generator, clf, scaler
