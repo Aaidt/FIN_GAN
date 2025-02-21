@@ -192,3 +192,29 @@ plt.title('Confusion Matrix')
 plt.ylabel('True Label')
 plt.xlabel('Predicted Label')
 plt.show()  
+
+
+# To save the GAN model:
+# After GAN training
+gan.generator.save('fraud_generator_model')
+gan.discriminator.save('fraud_discriminator_model')
+
+# To save the Random Forest model:
+# After training the classifier
+import joblib
+joblib.dump(clf, 'fraud_detection_model.joblib')
+
+
+# To Load and Use Saved Models:
+# Load GAN models
+loaded_generator = tf.keras.models.load_model('fraud_generator_model')
+
+# Load Random Forest
+loaded_clf = joblib.load('fraud_detection_model.joblib')
+
+# Use the loaded models
+# Generate synthetic data with loaded generator
+new_synthetic_data = loaded_generator.predict(noise)
+
+# Make predictions with loaded classifier
+predictions = loaded_clf.predict(new_data)
