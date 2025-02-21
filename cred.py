@@ -181,6 +181,14 @@ class FraudGAN:
         return model
 
     def train(self, X_train, epochs=1000, batch_size=128, sample_interval=100):
+        
+         # Add model checkpointing
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(
+            'generator_best.keras',
+            save_best_only=True,
+            monitor='loss'
+        )
+        
         # Labels for real and fake data
         real = np.ones((batch_size, 1))
         fake = np.zeros((batch_size, 1))
@@ -196,6 +204,10 @@ class FraudGAN:
             d_loss_real = self.discriminator.train_on_batch(real_data, real)
             d_loss_fake = self.discriminator.train_on_batch(generated_data, fake)
             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+            
+            # Save intermediate checkpoints
+            if epoch % 500 == 0:
+                self.generator.save(f'generator_epoch_{epoch}.keras')
             
             # Train Generator
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
