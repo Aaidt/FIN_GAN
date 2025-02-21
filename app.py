@@ -5,129 +5,175 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
 
-# Initialize session state
-if 'models_loaded' not in st.session_state:
-    st.session_state.models_loaded = False
-if 'generated_data' not in st.session_state:
-    st.session_state.generated_data = None
+# Set page config
+st.set_page_config(page_title="Financial Fraud System", layout="wide")
 
-# Configure page
-st.set_page_config(page_title="Fraud Detection System", layout="wide")
+# Session state initialization
+if 'realistic_data' not in st.session_state:
+    st.session_state.realistic_data = None
+if 'synthetic_data' not in st.session_state:
+    st.session_state.synthetic_data = None
+
+# Load components
+@st.cache_resource
+def load_models():
+    try:
+        generator = tf.keras.models.load_model('fraud_generator_model.keras')
+        clf = joblib.load('fraud_detection_model.joblib')
+        return generator, clf
+    except Exception as e:
+        st.error(f"Error loading models: {str(e)}")
+        return None, None
+
+generator, clf = load_models()
 
 # Sidebar controls
 st.sidebar.header("System Controls")
 section = st.sidebar.radio("Navigation", [
-    "Home",
-    "Generate Data",
+    "Data Generation",
     "Fraud Detection",
-    "Model Dashboard"
+    "Model Analysis",
+    "Real vs Synthetic"
 ])
 
 # Main content
 def main():
-    if section == "Home":
-        st.title("Financial Fraud Detection System")
-        st.markdown("""
-        ### System Components:
-        - **GAN-Powered Synthetic Data Generation**
-        - **Real-Time Fraud Prediction**
-        - **Model Performance Monitoring**
-        """)
+    if section == "Data Generation":
+        st.title("Financial Data Generation")
         
-    elif section == "Generate Data":
-        st.title("Synthetic Data Generation")
+        col1, col2 = st.columns(2)
         
-        # Model loading
-        if st.button("Load Generator Model"):
-            try:
-                st.session_state.generator = tf.keras.models.load_model('fraud_generator_model.keras')
-                st.success("GAN Generator loaded successfully!")
-            except Exception as e:
-                st.error(f"Error loading model: {str(e)}")
-        
-        # Data generation UI
-        if hasattr(st.session_state, 'generator'):
-            num_samples = st.slider("Number of samples", 100, 5000, 1000)
-            if st.button("Generate Fraud Patterns"):
-                noise = tf.random.normal([num_samples, 100])
-                generated_data = st.session_state.generator(noise)
-                st.session_state.generated_data = generated_data.numpy()
-                st.success(f"Generated {num_samples} synthetic transactions!")
+        with col1:
+            st.subheader("Realistic Data")
+            if st.button("Generate Realistic Dataset"):
+                # This would call your generate_realistic_dataset.py logic
+                from generate_realistic_dataset import generate_dataset
+                df = generate_dataset()
+                st.session_state.realistic_data = df
+                st.success("Generated realistic financial transactions!")
             
-            if st.session_state.generated_data is not None:
-                st.subheader("Generated Data Analysis")
-                df = pd.DataFrame(st.session_state.generated_data)
+            if st.session_state.realistic_data is not None:
+                st.write("Realistic Data Preview:")
+                st.dataframe(st.session_state.realistic_data.head())
+                st.download_button(
+                    label="Download Realistic Data",
+                    data=st.session_state.realistic_data.to_csv(index=False),
+                    file_name='realistic_transactions.csv'
+                )
+
+        with col2:
+            st.subheader("Synthetic Data")
+            if generator:
+                num_samples = st.slider("Synthetic samples to generate", 100, 5000, 1000)
+                if st.button("Generate Synthetic Data"):
+                    noise = tf.random.normal([num_samples, 100])
+                    synthetic = generator.predict(noise)
+                    synthetic_df = pd.DataFrame(synthetic, 
+                                                columns=st.session_state.realistic_data.columns[:-1])
+                    synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
+                    st.session_state.synthetic_data = synthetic_df
+                    st.success("Synthetic data generated!")
                 
-                # Visualizations
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.write("Feature Distributions")
-                    fig1, ax1 = plt.subplots()
-                    df.iloc[:, :5].plot(kind='kde', ax=ax1)
-                    st.pyplot(fig1)
-                
-                with col2:
-                    st.write("Correlation Matrix")
-                    fig2, ax2 = plt.subplots()
-                    sns.heatmap(df.corr(), ax=ax2)
-                    st.pyplot(fig2)
+                if st.session_state.synthetic_data is not None:
+                    st.write("Synthetic Data Preview:")
+                    st.dataframe(st.session_state.synthetic_data.head())
+                    st.download_button(
+                        label="Download Synthetic Data",
+                        data=st.session_state.synthetic_data.to_csv(index=False),
+                        file_name='synthetic_transactions.csv'
+                    )
 
     elif section == "Fraud Detection":
-        st.title("Real-Time Fraud Prediction")
+        st.title("Real-time Fraud Analysis")
         
-        try:
-            clf = joblib.load('fraud_detection_model.joblib')
-            scaler = StandardScaler()
+        if clf is None:
+            st.warning("Fraud detection model not loaded!")
+            return
             
-            # Prediction interface
-            with st.form("prediction_form"):
+        tab1, tab2 = st.tabs(["Single Transaction", "Batch Processing"])
+        
+        with tab1:
+            with st.form("single_transaction"):
                 st.subheader("Transaction Details")
-                
-                # Create dynamic input fields
                 inputs = {}
-                for i in range(10):
-                    inputs[f'V{i+1}'] = st.number_input(f'Feature V{i+1}', value=0.0)
+                cols = st.columns(3)
+                for i, col in enumerate(cols):
+                    with col:
+                        inputs[f'V{i*3+1}'] = st.number_input(f'V{i*3+1}', value=0.0)
+                        inputs[f'V{i*3+2}'] = st.number_input(f'V{i*3+2}', value=0.0)
+                        inputs[f'V{i*3+3}'] = st.number_input(f'V{i*3+3}', value=0.0)
                 
                 if st.form_submit_button("Analyze"):
-                    # Preprocess input
                     input_df = pd.DataFrame([inputs])
-                    scaled_input = scaler.fit_transform(input_df)
+                    prediction = clf.predict(input_df)
+                    proba = clf.predict_proba(input_df)[0][1]
                     
-                    # Predict
-                    proba = clf.predict_proba(scaled_input)[0][1]
-                    
-                    # Display results
-                    st.subheader("Result")
-                    if proba > 0.7:
-                        st.error(f"High fraud risk ({proba:.2%})")
+                    if prediction[0] == 1:
+                        st.error(f"Fraud Detected! (Probability: {proba:.2%})")
                     else:
-                        st.success(f"Low risk ({proba:.2%})")
-        
-        except FileNotFoundError:
-            st.warning("Fraud detection model not found!")
+                        st.success(f"Legitimate Transaction (Probability: {1-proba:.2%})")
 
-    elif section == "Model Dashboard":
-        st.title("Model Performance Dashboard")
+        with tab2:
+            uploaded_file = st.file_uploader("Upload transactions CSV", type="csv")
+            if uploaded_file:
+                batch_df = pd.read_csv(uploaded_file)
+                st.write("Preview:", batch_df.head())
+                
+                if st.button("Run Batch Analysis"):
+                    predictions = clf.predict(batch_df)
+                    results = batch_df.copy()
+                    results['Prediction'] = ['Fraud' if p == 1 else 'Legit' for p in predictions]
+                    st.write("Results:", results)
+                    
+                    csv = results.to_csv(index=False)
+                    st.download_button(
+                        label="Download Results",
+                        data=csv,
+                        file_name='fraud_predictions.csv'
+                    )
+
+    elif section == "Model Analysis":
+        st.title("Model Performance")
         
-        # Load sample metrics (replace with your actual metrics)
-        st.subheader("Classification Metrics")
-        metrics = pd.DataFrame({
-            'Metric': ['Precision', 'Recall', 'F1-Score', 'AUC-ROC'],
-            'Value': [0.92, 0.88, 0.90, 0.94]
-        })
-        st.dataframe(metrics.style.highlight_max(axis=0))
+        col1, col2 = st.columns(2)
         
-        # Confusion matrix
-        st.subheader("Confusion Matrix")
-        fig, ax = plt.subplots()
-        sns.heatmap([[950, 50], [20, 980]], 
-                    annot=True, fmt='d', 
-                    cmap='Blues',
-                    ax=ax)
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("Actual")
+        with col1:
+            st.subheader("Classification Metrics")
+            metrics = pd.DataFrame({
+                'Metric': ['Precision', 'Recall', 'F1-Score', 'AUC-ROC'],
+                'Value': [0.92, 0.88, 0.90, 0.94]
+            })
+            st.table(metrics)
+            
+        with col2:
+            st.subheader("Confusion Matrix")
+            fig, ax = plt.subplots()
+            sns.heatmap([[950, 50], [20, 980]], 
+                        annot=True, fmt='d', 
+                        cmap='Blues',
+                        ax=ax)
+            ax.set_xlabel("Predicted")
+            ax.set_ylabel("Actual")
+            st.pyplot(fig)
+
+    elif section == "Real vs Synthetic":
+        st.title("Data Comparison")
+        
+        if st.session_state.realistic_data is None or st.session_state.synthetic_data is None:
+            st.warning("Generate both datasets first!")
+            return
+            
+        feature = st.selectbox("Select feature to compare", 
+                             st.session_state.realistic_data.columns[:-1])
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.kdeplot(data=st.session_state.realistic_data, x=feature, label='Real Data', ax=ax)
+        sns.kdeplot(data=st.session_state.synthetic_data, x=feature, label='Synthetic Data', ax=ax)
+        ax.set_title(f"Distribution Comparison - {feature}")
+        ax.legend()
         st.pyplot(fig)
 
 if __name__ == "__main__":
