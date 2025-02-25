@@ -1,3 +1,6 @@
+import os
+import sys
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -7,6 +10,17 @@ import joblib
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
+
+
+# Add project root to Python path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+try:
+    from generate_realistic_dataset import generate_dataset
+except ImportError as e:
+    st.error(f"Failed to import dataset generator: {str(e)}")
+    st.stop()
+
 
 # Set page config
 st.set_page_config(page_title="Financial Fraud System", layout="wide")
@@ -46,45 +60,57 @@ def main():
         
         col1, col2 = st.columns(2)
         
+        # with col1:
+        #     st.subheader("Realistic Data")
+        #     if st.button("Generate Realistic Dataset"):
+        #         # This would call your generate_realistic_dataset.py logic
+        #         from generate_realistic_dataset import generate_dataset
+        #         df = generate_dataset()
+        #         st.session_state.realistic_data = df
+        #         st.success("Generated realistic financial transactions!")
+            
+        #     if st.session_state.realistic_data is not None:
+        #         st.write("Realistic Data Preview:")
+        #         st.dataframe(st.session_state.realistic_data.head())
+        #         st.download_button(
+        #             label="Download Realistic Data",
+        #             data=st.session_state.realistic_data.to_csv(index=False),
+        #             file_name='realistic_transactions.csv'
+        #         )
         with col1:
             st.subheader("Realistic Data")
             if st.button("Generate Realistic Dataset"):
-                # This would call your generate_realistic_dataset.py logic
-                from generate_realistic_dataset import generate_dataset
-                df = generate_dataset()
-                st.session_state.realistic_data = df
-                st.success("Generated realistic financial transactions!")
-            
-            if st.session_state.realistic_data is not None:
-                st.write("Realistic Data Preview:")
-                st.dataframe(st.session_state.realistic_data.head())
-                st.download_button(
-                    label="Download Realistic Data",
-                    data=st.session_state.realistic_data.to_csv(index=False),
-                    file_name='realistic_transactions.csv'
-                )
+                try:
+                    df = generate_dataset()  # From your generate_realistic_dataset.py
+                    st.session_state.realistic_data = df
+                    st.success("Generated realistic financial transactions!")
+                except Exception as e:
+                    st.error(f"Generation failed: {str(e)}")
+
 
         with col2:
             st.subheader("Synthetic Data")
             if generator:
                 num_samples = st.slider("Synthetic samples to generate", 100, 5000, 1000)
                 if st.button("Generate Synthetic Data"):
-                    noise = tf.random.normal([num_samples, 100])
-                    synthetic = generator.predict(noise)
-                    synthetic_df = pd.DataFrame(synthetic, 
-                                                columns=st.session_state.realistic_data.columns[:-1])
-                    synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
-                    st.session_state.synthetic_data = synthetic_df
-                    st.success("Synthetic data generated!")
-                
-                if st.session_state.synthetic_data is not None:
-                    st.write("Synthetic Data Preview:")
-                    st.dataframe(st.session_state.synthetic_data.head())
-                    st.download_button(
-                        label="Download Synthetic Data",
-                        data=st.session_state.synthetic_data.to_csv(index=False),
-                        file_name='synthetic_transactions.csv'
-                    )
+                    if st.session_state.realistic_data is None:
+                        st.warning("Generate realistic data first!")
+                    else:
+                        try:
+                            noise = tf.random.normal([num_samples, 100])
+                            synthetic = generator.predict(noise)
+                            synthetic_df = pd.DataFrame(
+                                synthetic,
+                                columns=st.session_state.realistic_data.columns[:-1]
+                            )
+                            synthetic_df['Class'] = np.random.choice([0, 1], 
+                                size=num_samples, 
+                                p=[0.9, 0.1]
+                            )
+                            st.session_state.synthetic_data = synthetic_df
+                            st.success("Synthetic data generated!")
+                        except Exception as e:
+                            st.error(f"Generation failed: {str(e)}")
 
     elif section == "Fraud Detection":
         st.title("Real-time Fraud Analysis")
