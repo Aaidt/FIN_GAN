@@ -5,7 +5,6 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import random
 
-
 def generate_dataset(n_samples=10000):
     # Your dataset generation logic here
     # Set seed for reproducibility
@@ -175,12 +174,5 @@ def generate_dataset(n_samples=10000):
     # Save the dataset to CSV
     all_transactions.to_csv('realistic_financial_transactions.csv', index=False)
     print("\nDataset saved as 'realistic_financial_transactions.csv'")
-    
-    # # Example:
-    # data = pd.DataFrame({
-    #     'Amount': np.random.lognormal(3, 1, n_samples),
-    #     'MerchantCategory': np.random.choice(['Retail', 'Travel', 'Food'], n_samples),
-    #     'Class': np.random.choice([0, 1], n_samples, p=[0.99, 0.01])
-    # })
     
     return all_transactions

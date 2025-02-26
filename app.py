@@ -1,6 +1,5 @@
 import os
 import sys
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,10 +7,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import joblib
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-
 import json
+
 # Add project root to Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -20,7 +17,6 @@ try:
 except ImportError as e:
     st.error(f"Failed to import dataset generator: {str(e)}")
     st.stop()
-
 
 # Set page config
 st.set_page_config(page_title="Financial Fraud System", layout="wide")
@@ -36,13 +32,25 @@ if 'synthetic_data' not in st.session_state:
 def load_models():
     try:
         generator = tf.keras.models.load_model('fraud_generator_model.keras')
-        clf = joblib.load('fraud_detection_model.joblib')
-        return generator, clf
     except Exception as e:
-        st.error(f"Error loading models: {str(e)}")
-        return None, None
+        st.error(f"Error loading generator model: {str(e)}")
+        generator = None
 
-generator, clf = load_models()
+    try:
+        clf = joblib.load('fraud_detection_model.joblib')
+    except Exception as e:
+        st.error(f"Error loading fraud detection model: {str(e)}")
+        clf = None
+
+    try:
+        scaler = joblib.load('scaler.joblib')
+    except Exception as e:
+        st.error(f"Error loading scaler: {str(e)}")
+        scaler = None
+
+    return generator, clf, scaler
+
+generator, clf, scaler = load_models()
 
 # Sidebar controls
 st.sidebar.header("System Controls")
@@ -60,23 +68,6 @@ def main():
         
         col1, col2 = st.columns(2)
         
-        # with col1:
-        #     st.subheader("Realistic Data")
-        #     if st.button("Generate Realistic Dataset"):
-        #         # This would call your generate_realistic_dataset.py logic
-        #         from generate_realistic_dataset import generate_dataset
-        #         df = generate_dataset()
-        #         st.session_state.realistic_data = df
-        #         st.success("Generated realistic financial transactions!")
-            
-        #     if st.session_state.realistic_data is not None:
-        #         st.write("Realistic Data Preview:")
-        #         st.dataframe(st.session_state.realistic_data.head())
-        #         st.download_button(
-        #             label="Download Realistic Data",
-        #             data=st.session_state.realistic_data.to_csv(index=False),
-        #             file_name='realistic_transactions.csv'
-        #         )
         with col1:
             st.subheader("Realistic Data")
             if st.button("Generate Realistic Dataset"):
@@ -87,7 +78,6 @@ def main():
                 except Exception as e:
                     st.error(f"Generation failed: {str(e)}")
 
-
         with col2:
             st.subheader("Synthetic Data")
             if generator:
@@ -97,48 +87,26 @@ def main():
                         st.warning("Generate realistic data first!")
                     else:
                         try:
-                            # Load training configuration
-                            with open('training_config.json') as f:
-                                config = json.load(f)
-                                
                             noise = tf.random.normal([num_samples, 100])
                             synthetic = generator.predict(noise)
                             
-                            # Create DF with processed feature names
-                            synthetic_df = pd.DataFrame(
-                                synthetic,
-                                columns=config['preprocessor_steps']
-                            )
+                            if scaler:
+                                # Scale synthetic data
+                                synthetic_scaled = scaler.inverse_transform(synthetic)
+                            else:
+                                synthetic_scaled = synthetic
+                            
+                            # Create DataFrame with feature names
+                            feature_names = [f'V{i}' for i in range(1, 11)]
+                            synthetic_df = pd.DataFrame(synthetic_scaled, columns=feature_names)
                             
                             # Add class column
-                            synthetic_df['Class'] = np.random.choice([0, 1], 
-                                size=num_samples, 
-                                p=[0.9, 0.1]
-                            )
+                            synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
                             
                             st.session_state.synthetic_data = synthetic_df
                             st.success("Synthetic data generated!")
                         except Exception as e:
                             st.error(f"Generation failed: {str(e)}")
-                            
-        if "realistic_data" not in st.session_state or st.session_state.realistic_data is None:
-            st.warning("No dataset found. Please generate the dataset first.")
-            st.stop()  # Prevents further execution
-         
-        st.session_state.realistic_data = generate_dataset()
-
-        if st.session_state.realistic_data is None:
-            raise ValueError("Dataset generation failed. Check generate_dataset().")
-            
-        # After generating both datasets
-        if st.session_state.realistic_data is not None:
-            real_dim = st.session_state.realistic_data.shape[1]
-        else:
-            st.warning("Dataset is empty. Please regenerate.")
-
-        syn_dim = st.session_state.synthetic_data.shape[1]
-        if real_dim != syn_dim: 
-            st.warning(f"Feature mismatch! Real: {real_dim} vs Syn: {syn_dim}")
 
     elif section == "Fraud Detection":
         st.title("Real-time Fraud Analysis")
@@ -150,9 +118,6 @@ def main():
         tab1, tab2 = st.tabs(["Single Transaction", "Batch Processing"])
         
         with tab1:
-            # input_processed = preprocessor.transform(input_df)
-            # prediction = clf.predict(input_processed)
-            
             with st.form("single_transaction"):
                 st.subheader("Transaction Details")
                 inputs = {}
@@ -165,8 +130,12 @@ def main():
                 
                 if st.form_submit_button("Analyze"):
                     input_df = pd.DataFrame([inputs])
-                    prediction = clf.predict(input_df)
-                    proba = clf.predict_proba(input_df)[0][1]
+                    if scaler:
+                        input_scaled = scaler.transform(input_df)
+                    else:
+                        input_scaled = input_df
+                    prediction = clf.predict(input_scaled)
+                    proba = clf.predict_proba(input_scaled)[0][1]
                     
                     if prediction[0] == 1:
                         st.error(f"Fraud Detected! (Probability: {proba:.2%})")
@@ -180,7 +149,11 @@ def main():
                 st.write("Preview:", batch_df.head())
                 
                 if st.button("Run Batch Analysis"):
-                    predictions = clf.predict(batch_df)
+                    if scaler:
+                        batch_scaled = scaler.transform(batch_df)
+                    else:
+                        batch_scaled = batch_df
+                    predictions = clf.predict(batch_scaled)
                     results = batch_df.copy()
                     results['Prediction'] = ['Fraud' if p == 1 else 'Legit' for p in predictions]
                     st.write("Results:", results)
@@ -219,16 +192,13 @@ def main():
     elif section == "Real vs Synthetic":
         st.title("Data Comparison")
         
-        valid_features = list(set(st.session_state.realistic_data.columns) 
-                    & set(st.session_state.synthetic_data.columns))
-        feature = st.selectbox("Select feature to compare", valid_features)
-
         if st.session_state.realistic_data is None or st.session_state.synthetic_data is None:
             st.warning("Generate both datasets first!")
             return
             
-        feature = st.selectbox("Select feature to compare", 
-                             st.session_state.realistic_data.columns[:-1])
+        valid_features = list(set(st.session_state.realistic_data.columns) 
+                    & set(st.session_state.synthetic_data.columns))
+        feature = st.selectbox("Select feature to compare", valid_features)
         
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.kdeplot(data=st.session_state.realistic_data, x=feature, label='Real Data', ax=ax)
