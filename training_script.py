@@ -122,6 +122,35 @@ y = data["Class"]
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
+
+# After preprocessing
+import json
+import numpy as np
+
+training_config = {
+    "learning_rate": 0.001,
+    "epochs": 100,
+    "batch_size": 32,
+    "model_type": "GAN"
+}
+
+
+# Function to convert NumPy arrays to lists
+def convert_numpy(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()  # Convert ndarray to list
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+if 'training_config' not in locals():
+    raise ValueError("Error: training_config is not defined. Check where it's supposed to be initialized.")
+print("training_config:", training_config)
+
+# Save the config file correctly
+with open("training_config.json", "w") as f:
+    json.dump(training_config, f, default=convert_numpy)
+
+    
 # Split the data
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
@@ -218,7 +247,7 @@ class FraudGAN:
 
 # Initialize and train the GAN
 gan = FraudGAN(input_dim=X_train.shape[1])
-gan.train(X_train, epochs=1000, batch_size=128, sample_interval=100)
+gan.train(X_train, epochs=1000)
 
 # Generate synthetic fraud data
 noise = np.random.normal(0, 1, (int(len(X_train) * 0.5), gan.latent_dim))

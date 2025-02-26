@@ -11,7 +11,7 @@ import tensorflow as tf
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 
-
+import json
 # Add project root to Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -97,20 +97,48 @@ def main():
                         st.warning("Generate realistic data first!")
                     else:
                         try:
+                            # Load training configuration
+                            with open('training_config.json') as f:
+                                config = json.load(f)
+                                
                             noise = tf.random.normal([num_samples, 100])
                             synthetic = generator.predict(noise)
+                            
+                            # Create DF with processed feature names
                             synthetic_df = pd.DataFrame(
                                 synthetic,
-                                columns=st.session_state.realistic_data.columns[:-1]
+                                columns=config['preprocessor_steps']
                             )
+                            
+                            # Add class column
                             synthetic_df['Class'] = np.random.choice([0, 1], 
                                 size=num_samples, 
                                 p=[0.9, 0.1]
                             )
+                            
                             st.session_state.synthetic_data = synthetic_df
                             st.success("Synthetic data generated!")
                         except Exception as e:
                             st.error(f"Generation failed: {str(e)}")
+                            
+        if "realistic_data" not in st.session_state or st.session_state.realistic_data is None:
+            st.warning("No dataset found. Please generate the dataset first.")
+            st.stop()  # Prevents further execution
+         
+        st.session_state.realistic_data = generate_dataset()
+
+        if st.session_state.realistic_data is None:
+            raise ValueError("Dataset generation failed. Check generate_dataset().")
+            
+        # After generating both datasets
+        if st.session_state.realistic_data is not None:
+            real_dim = st.session_state.realistic_data.shape[1]
+        else:
+            st.warning("Dataset is empty. Please regenerate.")
+
+        syn_dim = st.session_state.synthetic_data.shape[1]
+        if real_dim != syn_dim: 
+            st.warning(f"Feature mismatch! Real: {real_dim} vs Syn: {syn_dim}")
 
     elif section == "Fraud Detection":
         st.title("Real-time Fraud Analysis")
@@ -122,6 +150,9 @@ def main():
         tab1, tab2 = st.tabs(["Single Transaction", "Batch Processing"])
         
         with tab1:
+            # input_processed = preprocessor.transform(input_df)
+            # prediction = clf.predict(input_processed)
+            
             with st.form("single_transaction"):
                 st.subheader("Transaction Details")
                 inputs = {}
@@ -188,6 +219,10 @@ def main():
     elif section == "Real vs Synthetic":
         st.title("Data Comparison")
         
+        valid_features = list(set(st.session_state.realistic_data.columns) 
+                    & set(st.session_state.synthetic_data.columns))
+        feature = st.selectbox("Select feature to compare", valid_features)
+
         if st.session_state.realistic_data is None or st.session_state.synthetic_data is None:
             st.warning("Generate both datasets first!")
             return

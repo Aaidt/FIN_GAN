@@ -3,3 +3,4 @@ sp500.csv
 synthetic_fraud_data.csv
 realistic_financial_transactions.csv
 finenv/
+__pycache__/
