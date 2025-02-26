@@ -75,6 +75,7 @@ def main():
                     df = generate_dataset()  # From your generate_realistic_dataset.py
                     st.session_state.realistic_data = df
                     st.success("Generated realistic financial transactions!")
+                    st.write("Preview:", df.head())
                 except Exception as e:
                     st.error(f"Generation failed: {str(e)}")
 
@@ -97,14 +98,15 @@ def main():
                                 synthetic_scaled = synthetic
                             
                             # Create DataFrame with feature names
-                            feature_names = [f'V{i}' for i in range(1, 11)]
-                            synthetic_df = pd.DataFrame(synthetic_scaled, columns=feature_names)
+                            feature_names = [f'V{i}' for i in range(1, 11)] + ['NewFeature']
+                            synthetic_df = pd.DataFrame(synthetic_scaled, columns=feature_names[:synthetic_scaled.shape[1]])
                             
                             # Add class column
                             synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
                             
                             st.session_state.synthetic_data = synthetic_df
                             st.success("Synthetic data generated!")
+                            st.write("Preview:", synthetic_df.head())
                         except Exception as e:
                             st.error(f"Generation failed: {str(e)}")
 
@@ -127,6 +129,7 @@ def main():
                         inputs[f'V{i*3+1}'] = st.number_input(f'V{i*3+1}', value=0.0)
                         inputs[f'V{i*3+2}'] = st.number_input(f'V{i*3+2}', value=0.0)
                         inputs[f'V{i*3+3}'] = st.number_input(f'V{i*3+3}', value=0.0)
+                inputs['NewFeature'] = st.number_input('NewFeature', value=0.0)
                 
                 if st.form_submit_button("Analyze"):
                     input_df = pd.DataFrame([inputs])
@@ -153,6 +156,11 @@ def main():
                         batch_scaled = scaler.transform(batch_df)
                     else:
                         batch_scaled = batch_df
+                    
+                    # Ensure the batch data has the correct number of features
+                    expected_features = [f'V{i}' for i in range(1, 11)] + ['NewFeature']
+                    batch_scaled = batch_scaled[expected_features]
+                    
                     predictions = clf.predict(batch_scaled)
                     results = batch_df.copy()
                     results['Prediction'] = ['Fraud' if p == 1 else 'Legit' for p in predictions]
@@ -206,6 +214,18 @@ def main():
         ax.set_title(f"Distribution Comparison - {feature}")
         ax.legend()
         st.pyplot(fig)
+
+        # Add more comparisons
+        st.subheader("Additional Comparisons")
+        additional_features = ['Amount', 'DistanceFromHome', 'HoursSincePrevTransaction', 'NewFeature']
+        for feat in additional_features:
+            if feat in valid_features:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.kdeplot(data=st.session_state.realistic_data, x=feat, label='Real Data', ax=ax)
+                sns.kdeplot(data=st.session_state.synthetic_data, x=feat, label='Synthetic Data', ax=ax)
+                ax.set_title(f"Distribution Comparison - {feat}")
+                ax.legend()
+                st.pyplot(fig)
 
 if __name__ == "__main__":
     main()
