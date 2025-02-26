@@ -7,7 +7,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import json
+import joblib
 
 # Recreate the same synthetic dataset
 np.random.seed(42)  # Same seed for reproducibility
@@ -51,70 +52,6 @@ plt.show()
 data.to_csv('synthetic_fraud_data.csv', index=False)
 print("\nDataset saved as 'synthetic_fraud_data.csv'")
 
-
-# ------------------------------------------------------------------------------------------------------------
-# # Generate a synthetic dataset for demonstration
-# np.random.seed(42)
-# n_samples = 10000
-
-import pandas as pd
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-
-# Load the realistic dataset
-data = pd.read_csv('realistic_financial_transactions.csv')
-
-# Extract features and target
-X = data.drop('Class', axis=1)
-y = data['Class']
-
-# Handle categorical features
-categorical_features = ['MerchantCategory', 'PaymentMethod', 'DeviceUsed']
-numeric_features = ['Amount', 'DistanceFromHome', 'HoursSincePrevTransaction']
-boolean_features = ['AuthenticationFailed', 'IsWeekend', 'IsNightTime']
-
-# Create timestamp features
-X['Hour'] = pd.to_datetime(X['Timestamp']).dt.hour
-X['DayOfWeek'] = pd.to_datetime(X['Timestamp']).dt.dayofweek
-numeric_features.extend(['Hour', 'DayOfWeek'])
-
-# Drop original timestamp and ID
-X = X.drop(['Timestamp', 'TransactionID'], axis=1)
-
-# Create preprocessing pipeline
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), numeric_features),
-        ('cat', OneHotEncoder(), categorical_features),
-        ('bool', 'passthrough', boolean_features)
-    ])
-
-# Preprocess the data
-X_processed = preprocessor.fit_transform(X)
-
-# Split the data
-X_train, X_test, y_train, y_test = train_test_split(X_processed, y, test_size=0.2, random_state=42)
-# ------------------------------------------------------------------------------------------------------------
-
-
-
-# Create legitimate transactions
-legitimate = np.random.normal(loc=0, scale=1, size=(n_samples, 10))
-legitimate_labels = np.zeros(n_samples)
-
-# Create fraudulent transactions (fewer, with different distribution)
-fraudulent = np.random.normal(loc=2, scale=2, size=(int(n_samples * 0.1), 10))
-fraudulent_labels = np.ones(int(n_samples * 0.1))
-
-# Combine the data
-X = np.vstack([legitimate, fraudulent])
-y = np.hstack([legitimate_labels, fraudulent_labels])
-
-# Create a DataFrame
-feature_names = [f'V{i}' for i in range(1, 11)]
-data = pd.DataFrame(X, columns=feature_names)
-data['Class'] = y
-
 # Preprocess the data
 X = data.drop("Class", axis=1)
 y = data["Class"]
@@ -122,35 +59,9 @@ y = data["Class"]
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
+# Save the scaler for later use
+joblib.dump(scaler, 'scaler.joblib')
 
-# After preprocessing
-import json
-import numpy as np
-
-training_config = {
-    "learning_rate": 0.001,
-    "epochs": 100,
-    "batch_size": 32,
-    "model_type": "GAN"
-}
-
-
-# Function to convert NumPy arrays to lists
-def convert_numpy(obj):
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()  # Convert ndarray to list
-    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-
-
-if 'training_config' not in locals():
-    raise ValueError("Error: training_config is not defined. Check where it's supposed to be initialized.")
-print("training_config:", training_config)
-
-# Save the config file correctly
-with open("training_config.json", "w") as f:
-    json.dump(training_config, f, default=convert_numpy)
-
-    
 # Split the data
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
@@ -211,7 +122,7 @@ class FraudGAN:
 
     def train(self, X_train, epochs=1000, batch_size=128, sample_interval=100):
         
-         # Add model checkpointing
+        # Add model checkpointing
         checkpoint = tf.keras.callbacks.ModelCheckpoint(
             'generator_best.keras',
             save_best_only=True,
@@ -273,32 +184,12 @@ sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 plt.title('Confusion Matrix')
 plt.ylabel('True Label')
 plt.xlabel('Predicted Label')
-plt.show()  
+plt.show()
 
-# --------------------------------------------------------------------------------------
-# To save the GAN model:
-# After GAN training
-gan.generator.save('fraud_generator_model.keras')  
+# Save the GAN model
+gan.generator.save('fraud_generator_model.keras')
 gan.discriminator.save('fraud_discriminator_model.keras')
 
-# To save the Random Forest model:
-# After training the classifier
-import joblib
+# Save the Random Forest model
 joblib.dump(clf, 'fraud_detection_model.joblib')
-
-
-# To Load and Use Saved Models:
-# Load GAN models
-loaded_generator = tf.keras.models.load_model('fraud_generator_model')
-
-# Load Random Forest
-loaded_clf = joblib.load('fraud_detection_model.joblib')
-
-# Use the loaded models
-# Generate synthetic data with loaded generator
-new_synthetic_data = loaded_generator.predict(noise)
-
-# Make predictions with loaded classifier
-predictions = loaded_clf.predict(new_data)
-# --------------------------------------------------------------------------------------
 
