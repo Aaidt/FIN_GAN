@@ -4,3 +4,8 @@ synthetic_fraud_data.csv
 realistic_financial_transactions.csv
 finenv/
 __pycache__/
+fraud_detection_model.joblib
+fraud_discriminator_model.keras
+fraud_generator_model.keras
+generator_epoch_0.keras
+generator_epoch_500.keras

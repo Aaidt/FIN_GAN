@@ -31,6 +31,9 @@ feature_names = [f'V{i}' for i in range(1, 11)]
 data = pd.DataFrame(X, columns=feature_names)
 data['Class'] = y
 
+# Add a new feature to the dataset
+data['NewFeature'] = np.random.normal(loc=0, scale=1, size=len(data))
+
 # Display first few rows and basic information
 print("First 5 rows of the dataset:")
 print(data.head())
@@ -61,6 +64,7 @@ X_scaled = scaler.fit_transform(X)
 
 # Save the scaler for later use
 joblib.dump(scaler, 'scaler.joblib')
+print("\nScaler saved as 'scaler.joblib'")
 
 # Split the data
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
