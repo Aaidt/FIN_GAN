@@ -79,10 +79,12 @@ def main():
                 except Exception as e:
                     st.error(f"Generation failed: {str(e)}")
 
+
         with col2:
             st.subheader("Synthetic Data")
             if generator:
                 num_samples = st.slider("Synthetic samples to generate", 100, 5000, 1000)
+                
                 if st.button("Generate Synthetic Data"):
                     if st.session_state.realistic_data is None:
                         st.warning("Generate realistic data first!")
@@ -91,8 +93,11 @@ def main():
                             noise = tf.random.normal([num_samples, 100])
                             synthetic = generator.predict(noise)
                             
+                            # Store the unscaled synthetic data
+                            st.session_state.synthetic_data_raw = synthetic
+                            
                             if scaler:
-                                # Scale synthetic data
+                                # Scale synthetic data back to original
                                 synthetic_scaled = scaler.inverse_transform(synthetic)
                             else:
                                 synthetic_scaled = synthetic
@@ -101,17 +106,66 @@ def main():
                             feature_names = [f'V{i}' for i in range(1, 11)] + ['NewFeature']
                             synthetic_df = pd.DataFrame(synthetic_scaled, columns=feature_names[:synthetic_scaled.shape[1]])
                             
-                            # Add class column
+                            # Add class column (randomly assigned for testing)
                             synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
                             
                             st.session_state.synthetic_data = synthetic_df
                             st.success("Synthetic data generated!")
                             st.write("Preview:", synthetic_df.head())
+                            
                             # Save the synthetic data
                             synthetic_df.to_csv("synthetic_data.csv", index=False)
                             st.info("Synthetic data saved as synthetic_data.csv in the local directory.")
+                            
                         except Exception as e:
                             st.error(f"Generation failed: {str(e)}")
+
+                # Button to inverse transform and preview normalized synthetic data
+                if "synthetic_data_raw" in st.session_state and st.button("Invert to Normal Scale and Preview"):
+                    if scaler:
+                        try:
+                            inverted_data = scaler.inverse_transform(st.session_state.synthetic_data_raw)
+                            inverted_df = pd.DataFrame(inverted_data, columns=[f'V{i}' for i in range(1, 11)] + ['NewFeature'])
+                            st.success("Synthetic data transformed back to original scale!")
+                            st.write("Preview (Inverted Data):", inverted_df.head())
+                        except Exception as e:
+                            st.error(f"Error inverting data: {str(e)}")
+                    else:
+                        st.warning("Scaler not available. Cannot inverse transform data.")
+
+        # with col2:
+        #     st.subheader("Synthetic Data")
+        #     if generator:
+        #         num_samples = st.slider("Synthetic samples to generate", 100, 5000, 1000)
+        #         if st.button("Generate Synthetic Data"):
+        #             if st.session_state.realistic_data is None:
+        #                 st.warning("Generate realistic data first!")
+        #             else:
+        #                 try:
+        #                     noise = tf.random.normal([num_samples, 100])
+        #                     synthetic = generator.predict(noise)
+                            
+        #                     if scaler:
+        #                         # Scale synthetic data
+        #                         synthetic_scaled = scaler.inverse_transform(synthetic)
+        #                     else:
+        #                         synthetic_scaled = synthetic
+                            
+        #                     # Create DataFrame with feature names
+        #                     feature_names = [f'V{i}' for i in range(1, 11)] + ['NewFeature']
+        #                     synthetic_df = pd.DataFrame(synthetic_scaled, columns=feature_names[:synthetic_scaled.shape[1]])
+                            
+        #                     # Add class column
+        #                     synthetic_df['Class'] = np.random.choice([0, 1], size=num_samples, p=[0.9, 0.1])
+                            
+        #                     st.session_state.synthetic_data = synthetic_df
+        #                     st.success("Synthetic data generated!")
+        #                     st.write("Preview:", synthetic_df.head())
+        #                     # Save the synthetic data
+        #                     synthetic_df.to_csv("synthetic_data.csv", index=False)
+        #                     st.info("Synthetic data saved as synthetic_data.csv in the local directory.")
+        #                 except Exception as e:
+        #                     st.error(f"Generation failed: {str(e)}")
 
     elif section == "Fraud Detection":
         st.title("Real-time Fraud Analysis")
