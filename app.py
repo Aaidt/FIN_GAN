@@ -107,6 +107,9 @@ def main():
                             st.session_state.synthetic_data = synthetic_df
                             st.success("Synthetic data generated!")
                             st.write("Preview:", synthetic_df.head())
+                            # Save the synthetic data
+                            synthetic_df.to_csv("synthetic_data.csv", index=False)
+                            st.info("Synthetic data saved as synthetic_data.csv in the local directory.")
                         except Exception as e:
                             st.error(f"Generation failed: {str(e)}")
 
