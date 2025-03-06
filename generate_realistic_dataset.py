@@ -132,8 +132,12 @@ def generate_dataset(n_samples=10000):
     })
 
     # Add a new feature to the dataset
-    legitimate_df['NewFeature'] = np.random.normal(loc=0, scale=1, size=n_legitimate)
-    fraudulent_df['NewFeature'] = np.random.normal(loc=0, scale=1, size=n_fraudulent)
+    # legitimate_df['NewFeature'] = np.random.normal(loc=0, scale=1, size=n_legitimate)
+    # fraudulent_df['NewFeature'] = np.random.normal(loc=0, scale=1, size=n_fraudulent)
+    legitimate_df['NewFeature'] = np.random.normal(loc=0.2, scale=0.5, size=n_legitimate)
+    fraudulent_df['NewFeature'] = np.random.normal(loc=1.5, scale=0.8, size=n_fraudulent)
+
+
 
     # Combine and shuffle
     all_transactions = pd.concat([legitimate_df, fraudulent_df])
